@@ -4,10 +4,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-function withTempDir(fn: (dir: string) => void): void {
+async function withTempDir(fn: (dir: string) => Promise<void>): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), "yg-cfg-"));
   process.env.YOUGILE_MCP_CONFIG_DIR = dir;
-  try { fn(dir); } finally { delete process.env.YOUGILE_MCP_CONFIG_DIR; rmSync(dir, { recursive: true, force: true }); }
+  try { await fn(dir); } finally { delete process.env.YOUGILE_MCP_CONFIG_DIR; rmSync(dir, { recursive: true, force: true }); }
 }
 
 test("loadConfig returns {} when no file exists", async () => {
