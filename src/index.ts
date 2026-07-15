@@ -38,7 +38,7 @@ function deny(reason: string): CallToolResult { log.warning(`DENIED: ${reason}`)
 
 export async function dispatch(name: string, rawArgs: Record<string, unknown>): Promise<CallToolResult> {
   const args = { ...rawArgs };
-  const confirm = Boolean(args.confirm); delete args.confirm;
+  const confirm = args.confirm === true; delete args.confirm;
 
   if (AUTH_TOOL_NAMES.has(name)) return authHandlers[name](args, { apiKey: "" });
 

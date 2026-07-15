@@ -53,3 +53,35 @@ test("CONFIRM requires confirm=true for mutating tools", async () => {
     assert.equal(payload.confirm_required, true);
   } finally { delete process.env.YG_CONFIRM; rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("CONFIRM gate: confirm=true passes the gate", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-disp-"));
+  try {
+    const m = await load(dir, { YG_CONFIRM: "true" });
+    const res = await m.dispatch("yg_task_create", { title: "x", columnId: "c1", confirm: true });
+    const payload = JSON.parse(res.content[0].text as string);
+    assert.equal(payload.confirm_required, undefined);
+    assert.equal(payload.authorization_required, true);
+  } finally { delete process.env.YG_CONFIRM; rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("CONFIRM gate: string 'false' does NOT bypass", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-disp-"));
+  try {
+    const m = await load(dir, { YG_CONFIRM: "true" });
+    const res = await m.dispatch("yg_task_create", { title: "x", columnId: "c1", confirm: "false" });
+    const payload = JSON.parse(res.content[0].text as string);
+    assert.equal(payload.confirm_required, true);
+  } finally { delete process.env.YG_CONFIRM; rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("auth tools bypass READONLY", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-disp-"));
+  try {
+    const m = await load(dir, { YG_READONLY: "true" });
+    const res = await m.dispatch("yg_auth_status", {});
+    const payload = JSON.parse(res.content[0].text as string);
+    assert.equal(payload.denied, undefined);
+    assert.equal("api_key_set" in payload, true);
+  } finally { delete process.env.YG_READONLY; rmSync(dir, { recursive: true, force: true }); }
+});
