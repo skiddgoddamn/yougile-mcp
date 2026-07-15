@@ -39,6 +39,7 @@ function persist(): void {
 
 export function setApiKey(key: string): void { state.api_key = key; persist(); }
 export function setCompany(id: string, name: string): void { state.company_id = id; state.company_name = name; persist(); }
+export function setBaseUrl(url: string): void { state.base_url = url; persist(); }
 
 export function authRequiredPayload(reason: string): Record<string, unknown> {
   return {
@@ -84,7 +85,7 @@ export const authHandlers: Record<string, Handler> = {
     if (!key) return text({ error: "apiKey is required" });
     setApiKey(key);
     const baseUrl = String(args.baseUrl ?? "").trim();
-    if (baseUrl) { state.base_url = baseUrl; persist(); }
+    if (baseUrl) { setBaseUrl(baseUrl); }
     return text({ ok: true, message: "API key saved." });
   },
 };

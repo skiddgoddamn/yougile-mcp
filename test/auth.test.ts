@@ -32,3 +32,18 @@ test("yg_setup stores the key and yg_auth_status reflects it", async () => {
     assert.equal(payload.api_key_set, true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("yg_setup persists base_url via setBaseUrl", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-auth-"));
+  try {
+    process.env.YOUGILE_MCP_CONFIG_DIR = dir;
+    delete process.env.YOUGILE_API_KEY;
+    const auth = await import("../src/auth.ts?" + encodeURIComponent(dir)); // cache-bust per dir
+    const config = await import("../src/config.ts?" + encodeURIComponent(dir)); // cache-bust per dir
+    auth.initAuth();
+    await auth.authHandlers.yg_setup({ apiKey: "K", baseUrl: "https://example.com/api" }, { apiKey: "" });
+    const loaded = config.loadConfig();
+    assert.equal(loaded.api_key, "K");
+    assert.equal(loaded.base_url, "https://example.com/api");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
