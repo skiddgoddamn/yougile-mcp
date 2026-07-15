@@ -59,3 +59,19 @@ test("yg_tasks_list applies client filters (assignedTo, deadlineBefore, changedA
     assert.equal(payload.count, 1);
   } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("yg_task_create forwards checklists in POST body", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-tk-"));
+  const orig = globalThis.fetch;
+  try {
+    const t = await load(dir);
+    let seenBody = "";
+    globalThis.fetch = (async (_u: string, i: RequestInit) => { seenBody = i.body as string; return new Response(JSON.stringify({ id: "t2" }), { status: 200 }); }) as unknown as typeof fetch;
+    const checklistsInput = [{ title: "cl", items: [{ title: "i", isCompleted: false }] }];
+    await t.tasksHandlers.yg_task_create({ title: "T", columnId: "c1", checklists: checklistsInput }, { apiKey: "KEY" });
+    const body = JSON.parse(seenBody);
+    assert.equal(body.title, "T");
+    assert.equal(body.columnId, "c1");
+    assert.deepEqual(body.checklists, checklistsInput);
+  } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
+});

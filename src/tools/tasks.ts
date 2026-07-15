@@ -46,6 +46,7 @@ export const tasksTools: ToolDef[] = [
       assigned: { type: "array", items: { type: "string" }, description: "User ids to assign." },
       deadline: { type: "string", description: "ms epoch or ISO date." },
       subtasks: { type: "array", items: { type: "string" }, description: "Subtask (task) ids." },
+      checklists: { type: "array", description: "Checklists, each { title, items: [{ title, isCompleted }] }." },
       completed: { type: "boolean" }, archived: { type: "boolean" }, color: { type: "string" },
     }, required: ["title", "columnId"] } },
   { name: "yg_task_update", description: "Update a task: move (columnId), assign, deadline, complete, archive, edit title/description. Only provided fields change. Pass deadline=null to clear.",
@@ -79,7 +80,7 @@ export const tasksHandlers: Record<string, Handler> = {
   },
   async yg_task_create(args) {
     const body: Record<string, unknown> = {};
-    for (const k of ["title", "columnId", "description", "assigned", "subtasks", "completed", "archived", "color"]) if (args[k] !== undefined) body[k] = args[k];
+    for (const k of ["title", "columnId", "description", "assigned", "subtasks", "checklists", "completed", "archived", "color"]) if (args[k] !== undefined) body[k] = args[k];
     const dl = normalizeDeadline(args.deadline);
     if (dl !== undefined) body.deadline = dl;
     return text(await yougileFetch("POST", "/tasks", { body }));
