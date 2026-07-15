@@ -24,6 +24,10 @@ export function getApiKey(): string {
   if (!k) throw new AuthError();
   return k;
 }
+export const DEFAULT_BASE_URL = "https://ru.yougile.com/api-v2";
+export function currentBaseUrl(): string {
+  return (state.base_url && state.base_url.trim()) || process.env.YOUGILE_BASE_URL || DEFAULT_BASE_URL;
+}
 export function currentCompany(): { id: string; name: string } {
   return { id: state.company_id ?? "", name: state.company_name ?? "" };
 }
