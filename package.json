@@ -1,5 +1,5 @@
 {
-  "name": "yougile-mcp",
+  "name": "@skiddgoddamn/yougile-mcp",
   "version": "1.0.0",
   "description": "MCP server for YouGile — watch, create, and manage tasks, boards and projects",
   "license": "MIT",
@@ -7,6 +7,7 @@
   "type": "module",
   "bin": { "yougile-mcp": "build/index.js" },
   "files": ["build"],
+  "publishConfig": { "access": "public" },
   "engines": { "node": ">=20" },
   "repository": { "type": "git", "url": "git+https://github.com/skiddgoddamn/yougile-mcp.git" },
   "homepage": "https://github.com/skiddgoddamn/yougile-mcp#readme",
