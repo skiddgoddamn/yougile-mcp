@@ -87,7 +87,7 @@ export const AUTH_TOOLS: ToolDef[] = [
     description: "Create (or reuse) a YouGile API key for a company from login/password, and store it. Credentials are used once and NOT stored.",
     inputSchema: {
       type: "object",
-      properties: { login: { type: "string" }, password: { type: "string" }, companyId: { type: "string" } },
+      properties: { login: { type: "string" }, password: { type: "string" }, companyId: { type: "string" }, companyName: { type: "string", description: "Optional display name to store for the company (from yg_auth_companies)." } },
       required: ["login", "password", "companyId"],
     },
   },
