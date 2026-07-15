@@ -1,6 +1,7 @@
 import { loadConfig, saveConfig, type StoredConfig } from "./config.js";
 import { text } from "./types.js";
 import type { ToolDef, Handler } from "./types.js";
+import { yougileFetch } from "./api.js";
 
 export class AuthError extends Error {
   constructor(message = "YouGile API key is not configured") { super(message); this.name = "AuthError"; }
@@ -72,6 +73,24 @@ export const AUTH_TOOLS: ToolDef[] = [
       required: ["apiKey"],
     },
   },
+  {
+    name: "yg_auth_companies",
+    description: "List YouGile companies for a login/password so you can pick a companyId. Credentials are used once and NOT stored.",
+    inputSchema: {
+      type: "object",
+      properties: { login: { type: "string" }, password: { type: "string" } },
+      required: ["login", "password"],
+    },
+  },
+  {
+    name: "yg_auth_create_key",
+    description: "Create (or reuse) a YouGile API key for a company from login/password, and store it. Credentials are used once and NOT stored.",
+    inputSchema: {
+      type: "object",
+      properties: { login: { type: "string" }, password: { type: "string" }, companyId: { type: "string" } },
+      required: ["login", "password", "companyId"],
+    },
+  },
 ];
 
 export const authHandlers: Record<string, Handler> = {
@@ -91,5 +110,35 @@ export const authHandlers: Record<string, Handler> = {
     const baseUrl = String(args.baseUrl ?? "").trim();
     if (baseUrl) { setBaseUrl(baseUrl); }
     return text({ ok: true, message: "API key saved." });
+  },
+  async yg_auth_companies(args) {
+    const login = String(args.login ?? "").trim();
+    const password = String(args.password ?? "");
+    if (!login || !password) return text({ error: "login and password are required" });
+    const res = await yougileFetch("POST", "/auth/companies", { auth: false, body: { login, password } });
+    const companies = Array.isArray(res?.content) ? res.content : res;
+    return text({ companies, hint: "Pick an id and call yg_auth_create_key with it." });
+  },
+  async yg_auth_create_key(args) {
+    const login = String(args.login ?? "").trim();
+    const password = String(args.password ?? "");
+    const companyId = String(args.companyId ?? "").trim();
+    if (!login || !password || !companyId) return text({ error: "login, password and companyId are required" });
+    let key = "";
+    try {
+      const existing = await yougileFetch("POST", "/auth/keys/get", { auth: false, body: { login, password, companyId } });
+      const list = Array.isArray(existing) ? existing : existing?.content;
+      const alive = Array.isArray(list) ? list.find((k: any) => k && !k.deleted && k.key) : null;
+      if (alive) key = alive.key;
+    } catch { /* fall through to create */ }
+    if (!key) {
+      const created = await yougileFetch("POST", "/auth/keys", { auth: false, body: { login, password, companyId } });
+      key = created?.key ?? created?.content?.key ?? "";
+    }
+    if (!key) return text({ error: "Could not obtain an API key from YouGile." });
+    setApiKey(key);
+    setCompany(companyId, String(args.companyName ?? ""));
+    const masked = key.length > 8 ? `${key.slice(0, 4)}…${key.slice(-4)}` : "****";
+    return text({ ok: true, message: "API key created and stored.", key_preview: masked, company_id: companyId });
   },
 };
