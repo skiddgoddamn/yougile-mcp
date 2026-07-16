@@ -83,6 +83,23 @@ Either path stores the resulting API key at `~/.yougile-mcp/config.json` (overri
 | `yg_task_update` | Update a task: move (`columnId`), assign, deadline, complete, archive, edit title/description. Only provided fields change. Pass `deadline=null` to clear. |
 | `yg_task_comment` | Post a comment to a task's chat. |
 
+### Task descriptions are HTML
+
+The `description` field on `yg_task_create` / `yg_task_update` is **rendered as HTML** — not markdown, not plain text. This is the single easiest thing to get wrong: newlines are ignored, so a plain-text description with `\n` collapses into one unreadable wall of text in the UI, and the API happily accepts it without complaint.
+
+Use `<p>` paragraphs, `<b>` / `<i>`, `<ul>`/`<ol>` + `<li>`, `<br>`, `<a href>`:
+
+```js
+yg_task_update({
+  id: "…",
+  description: "<p><b>Goal.</b> Ship it.</p><ul><li>step one</li><li>step two</li></ul>",
+})
+```
+
+Reading a task back returns the same HTML, so round-tripping a description is safe.
+
+**Chat messages are not HTML.** `yg_task_comment` takes plain text — newlines there work as expected. Don't send HTML to it.
+
 ## Watching (on-demand)
 
 This server has no push/webhook mechanism — YouGile is watched **on-demand**, by having an agent call the list tools on a schedule and reason about the results. Two patterns:

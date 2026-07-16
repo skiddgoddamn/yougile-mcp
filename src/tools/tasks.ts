@@ -28,6 +28,17 @@ function taskDeadlineMs(task: any): number | undefined {
   return undefined;
 }
 
+/**
+ * YouGile renders task descriptions as HTML, not plain text or markdown. Plain text with "\n"
+ * collapses into one unreadable paragraph in the UI, which is easy to miss when writing via the API.
+ */
+export const DESCRIPTION_FIELD_DOC =
+  "Task description. RENDERED AS HTML, not markdown and not plain text — newlines are ignored and " +
+  "plain text collapses into one wall of text in the UI. Use tags: <p> paragraphs, <b> bold, <i> italic, " +
+  "<ul>/<ol> + <li> lists, <br> line break, <a href> links. Example: " +
+  "\"<p><b>Goal.</b> Ship it.</p><ul><li>step one</li><li>step two</li></ul>\". " +
+  "Reading a task back returns the same HTML.";
+
 export const tasksTools: ToolDef[] = [
   { name: "yg_tasks_list",
     description: "List tasks (the workhorse for watching). Server filters: columnId, title, includeDeleted, limit, offset. Client filters applied to the page: assignedTo (user id), completed, archived, deadlineBefore (ms epoch or ISO), changedAfter (ms epoch or ISO, vs task timestamp).",
@@ -42,7 +53,7 @@ export const tasksTools: ToolDef[] = [
     inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
   { name: "yg_task_create", description: "Create a task in a column.",
     inputSchema: { type: "object", properties: {
-      title: { type: "string" }, columnId: { type: "string" }, description: { type: "string" },
+      title: { type: "string" }, columnId: { type: "string" }, description: { type: "string", description: DESCRIPTION_FIELD_DOC },
       assigned: { type: "array", items: { type: "string" }, description: "User ids to assign." },
       deadline: { type: "string", description: "ms epoch or ISO date." },
       subtasks: { type: "array", items: { type: "string" }, description: "Subtask (task) ids." },
@@ -51,7 +62,7 @@ export const tasksTools: ToolDef[] = [
     }, required: ["title", "columnId"] } },
   { name: "yg_task_update", description: "Update a task: move (columnId), assign, deadline, complete, archive, edit title/description. Only provided fields change. Pass deadline=null to clear.",
     inputSchema: { type: "object", properties: {
-      id: { type: "string" }, columnId: { type: "string" }, title: { type: "string" }, description: { type: "string" },
+      id: { type: "string" }, columnId: { type: "string" }, title: { type: "string" }, description: { type: "string", description: DESCRIPTION_FIELD_DOC },
       assigned: { type: "array", items: { type: "string" } },
       deadline: { type: "string", description: "ms epoch or ISO date; null clears." },
       completed: { type: "boolean" }, archived: { type: "boolean" },

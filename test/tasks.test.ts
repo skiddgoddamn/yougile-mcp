@@ -75,3 +75,17 @@ test("yg_task_create forwards checklists in POST body", async () => {
     assert.deepEqual(body.checklists, checklistsInput);
   } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("description field schema documents that YouGile renders it as HTML", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-"));
+  try {
+    const { tasksTools } = await load(dir);
+    for (const name of ["yg_task_create", "yg_task_update"]) {
+      const tool = tasksTools.find((t) => t.name === name);
+      assert.ok(tool, `${name} should exist`);
+      const desc = (tool!.inputSchema as any).properties.description?.description ?? "";
+      assert.match(desc, /HTML/, `${name}.description must warn that the field is HTML`);
+      assert.match(desc, /<ul>|<li>|<p>/, `${name}.description must show which tags to use`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
