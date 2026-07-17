@@ -26,7 +26,7 @@ The CLI binary itself is still called `yougile-mcp` either way.
 
 ## Auth
 
-There are two ways to get the server talking to your YouGile company:
+The server holds **one API key per YouGile company** and keeps an *active* company. There are two ways to get it talking to YouGile:
 
 1. **Bring your own key.** Create an API key in the YouGile UI (Profile → API keys), then call:
    ```
@@ -34,26 +34,29 @@ There are two ways to get the server talking to your YouGile company:
    ```
    Optionally pass `baseUrl` if you're on a non-default region/host.
 
-2. **Login/password → key.** Two-step flow that never persists your credentials:
+2. **Login/password → keys for all companies (recommended).** One call fetches (or reuses) a key for **every** company the login can access and stores them all:
    ```
-   yg_auth_companies({ login, password })       // lists companies you belong to
-   yg_auth_create_key({ login, password, companyId })  // creates/reuses a key, stores it
+   yg_auth_create_key({ login, password })   // omit companyId → all companies
    ```
+   Pass `companyId` to fetch just one. Use `yg_auth_companies({ login, password })` first if you only want to preview the list without creating keys.
 
-Either path stores the resulting API key at `~/.yougile-mcp/config.json` (override the directory with `YOUGILE_MCP_CONFIG_DIR`). **Login and password are used once per call and are never written to disk.** Check current status any time with `yg_auth_status`.
+**Using multiple companies.** After the fetch-all, switch the active company with `yg_company_use({ company: "<id-or-name>" })`, or target one per call by passing `company` on any tool (e.g. `yg_tasks_list({ company: "9mice" })`). `yg_auth_status` lists every stored company with masked key previews.
+
+Keys are stored at `~/.yougile-mcp/config.json` (override the directory with `YOUGILE_MCP_CONFIG_DIR`). **Login and password are used once per call and are never written to disk.**
 
 ## Tools
 
-17 tools, all prefixed `yg_`.
+18 tools, all prefixed `yg_`.
 
 ### Auth
 
 | Tool | Description |
 |---|---|
-| `yg_auth_status` | Show YouGile auth status: whether an API key is stored and which company (if known). |
-| `yg_setup` | Store a YouGile API key (create one in the YouGile UI, or use `yg_auth_create_key`). Optionally set a custom base URL for self-hosted instances. |
-| `yg_auth_companies` | List YouGile companies for a login/password so you can pick a `companyId`. Credentials are used once and NOT stored. |
-| `yg_auth_create_key` | Create (or reuse) a YouGile API key for a company from login/password, and store it. Credentials are used once and NOT stored. |
+| `yg_auth_status` | Show auth status: the active company and every stored company (with masked key previews). |
+| `yg_setup` | Store a single YouGile API key (create one in the YouGile UI, or use `yg_auth_create_key`). Optionally set a custom base URL for self-hosted instances. |
+| `yg_auth_companies` | List YouGile companies for a login/password (no keys created). Credentials are used once and NOT stored. |
+| `yg_auth_create_key` | Fetch/reuse keys from login/password and store them. Omit `companyId` to grab keys for **all** companies at once. Credentials are used once and NOT stored. |
+| `yg_company_use` | Switch the active company for later calls (by id or name). Or pass `company` on any tool to target one per call. |
 
 ### Structure (projects, boards, columns, people)
 

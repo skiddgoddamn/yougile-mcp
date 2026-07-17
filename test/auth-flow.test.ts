@@ -76,6 +76,51 @@ test("yg_auth_create_key returns a masked preview, never the full key", async ()
   } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
 });
 
+test("yg_auth_create_key without companyId fetches keys for ALL companies", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-flow-"));
+  const orig = globalThis.fetch;
+  try {
+    const auth = await load(dir);
+    const companyOf: Record<string, string> = {};
+    globalThis.fetch = (async (u: string, i: RequestInit) => {
+      const url = String(u);
+      if (url.endsWith("/auth/companies")) return new Response(JSON.stringify({ content: [{ id: "co1", name: "Acme" }, { id: "co2", name: "Globex" }] }), { status: 200 });
+      const body = JSON.parse((i?.body as string) ?? "{}");
+      if (url.endsWith("/auth/keys/get")) { companyOf[body.companyId] = `KEY-${body.companyId}`; return new Response(JSON.stringify([{ key: `KEY-${body.companyId}`, deleted: false }]), { status: 200 }); }
+      return new Response(JSON.stringify({ key: `KEY-${body.companyId}` }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const res = await auth.authHandlers.yg_auth_create_key({ login: "a", password: "p" }, { apiKey: "" });
+    const payload = JSON.parse(res.content[0].text as string);
+    assert.equal(payload.ok, true);
+    assert.equal(payload.companies.length, 2);
+    assert.equal(payload.active_company_id, "co1");
+    // Active company key is co1; switching to co2 yields co2's key.
+    assert.equal(auth.getApiKey(), "KEY-co1");
+    assert.equal(auth.resolveKeyForCompany("Globex"), "KEY-co2");
+    auth.setActiveCompany("co2");
+    assert.equal(auth.getApiKey(), "KEY-co2");
+  } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("runWithApiKey overrides the active key for the scoped call only", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "yg-flow-"));
+  const orig = globalThis.fetch;
+  try {
+    const auth = await load(dir);
+    globalThis.fetch = (async (u: string, i: RequestInit) => {
+      const url = String(u);
+      if (url.endsWith("/auth/companies")) return new Response(JSON.stringify({ content: [{ id: "co1", name: "Acme" }, { id: "co2", name: "Globex" }] }), { status: 200 });
+      const body = JSON.parse((i?.body as string) ?? "{}");
+      return new Response(JSON.stringify([{ key: `KEY-${body.companyId}`, deleted: false }]), { status: 200 });
+    }) as unknown as typeof fetch;
+    await auth.authHandlers.yg_auth_create_key({ login: "a", password: "p" }, { apiKey: "" });
+    assert.equal(auth.getApiKey(), "KEY-co1");
+    const inside = auth.runWithApiKey(auth.resolveKeyForCompany("co2"), () => auth.getApiKey());
+    assert.equal(inside, "KEY-co2");
+    assert.equal(auth.getApiKey(), "KEY-co1", "active key restored after the scoped call");
+  } finally { globalThis.fetch = orig; rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("yg_auth_create_key skips deleted keys and reuses the first alive one", async () => {
   const dir = mkdtempSync(join(tmpdir(), "yg-flow-"));
   const orig = globalThis.fetch;

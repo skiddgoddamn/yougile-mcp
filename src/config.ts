@@ -2,11 +2,22 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
+export interface CompanyEntry {
+  id: string;
+  name?: string;
+  api_key: string;
+}
+
 export interface StoredConfig {
+  // Legacy single-company fields — still written (mirroring the active company)
+  // for backward compatibility with older readers.
   api_key?: string;
   company_id?: string;
   company_name?: string;
   base_url?: string;
+  // Multi-company: one API key per YouGile company.
+  companies?: CompanyEntry[];
+  active_company_id?: string;
 }
 
 export function configDir(): string {

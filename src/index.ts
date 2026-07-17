@@ -6,7 +6,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolDef, Handler } from "./types.js";
 import { text } from "./types.js";
-import { initAuth, currentApiKey, AuthError, authRequiredPayload, AUTH_TOOLS, authHandlers } from "./auth.js";
+import { initAuth, currentApiKey, AuthError, authRequiredPayload, AUTH_TOOLS, authHandlers, resolveKeyForCompany, runWithApiKey } from "./auth.js";
 import { structureTools, structureHandlers } from "./tools/structure.js";
 import { tasksTools, tasksHandlers } from "./tools/tasks.js";
 import { chatTools, chatHandlers } from "./tools/chat.js";
@@ -39,8 +39,9 @@ function deny(reason: string): CallToolResult { log.warning(`DENIED: ${reason}`)
 export async function dispatch(name: string, rawArgs: Record<string, unknown>): Promise<CallToolResult> {
   const args = { ...rawArgs };
   const confirm = args.confirm === true; delete args.confirm;
+  const company = typeof args.company === "string" ? args.company.trim() : ""; delete args.company;
 
-  if (AUTH_TOOL_NAMES.has(name)) return authHandlers[name](args, { apiKey: "" });
+  if (AUTH_TOOL_NAMES.has(name)) return authHandlers[name]({ ...args, ...(company ? { company } : {}) }, { apiKey: "" });
 
   const mutating = isMutating(name);
   if (mutating && READONLY) return deny(`Tool '${name}' is blocked: server runs in READ-ONLY mode (YG_READONLY=true).`);
@@ -49,21 +50,31 @@ export async function dispatch(name: string, rawArgs: Record<string, unknown>): 
 
   const handler = HANDLERS[name];
   if (!handler) return text({ error: `Unknown tool: ${name}` });
-  if (!currentApiKey()) return text(authRequiredPayload("No YouGile API key configured"));
 
-  try {
-    return await handler(args, { apiKey: currentApiKey() });
-  } catch (e) {
-    if (e instanceof AuthError) return text(authRequiredPayload(e.message));
-    log.error(`Tool ${name} failed: ${e instanceof Error ? e.stack || e.message : String(e)}`);
-    return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }] };
+  // Optional per-call company override: run the handler with that company's key.
+  let overrideKey: string | undefined;
+  if (company) {
+    try { overrideKey = resolveKeyForCompany(company); }
+    catch (e) { return text({ error: e instanceof Error ? e.message : String(e) }); }
   }
+
+  return runWithApiKey(overrideKey, async () => {
+    if (!currentApiKey()) return text(authRequiredPayload("No YouGile API key configured"));
+    try {
+      return await handler(args, { apiKey: currentApiKey() });
+    } catch (e) {
+      if (e instanceof AuthError) return text(authRequiredPayload(e.message));
+      log.error(`Tool ${name} failed: ${e instanceof Error ? e.stack || e.message : String(e)}`);
+      return { content: [{ type: "text", text: `Error: ${e instanceof Error ? e.message : String(e)}` }] };
+    }
+  });
 }
 
 function augment(tool: ToolDef): ToolDef {
   const schema = JSON.parse(JSON.stringify(tool.inputSchema ?? { type: "object", properties: {} }));
   schema.properties ??= {};
   if (CONFIRM && isMutating(tool.name)) schema.properties.confirm ??= { type: "boolean", description: "Must be true to execute this mutating call (YG_CONFIRM is enabled)." };
+  if (!AUTH_TOOL_NAMES.has(tool.name)) schema.properties.company ??= { type: "string", description: "Optional company id or name (from yg_auth_status) to target instead of the active company." };
   return { ...tool, inputSchema: schema };
 }
 
